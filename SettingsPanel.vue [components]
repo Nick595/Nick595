@@ -1,0 +1,79 @@
+<template>
+  <div class="fade-in">
+    <div style="max-width:600px;">
+      <div style="font-weight:800;font-size:1.25rem;margin-bottom:0.25rem;">Settings</div>
+      <div style="color:rgba(255,255,255,0.4);font-size:0.82rem;margin-bottom:1.5rem;">Connect your APIs and customise the dashboard</div>
+
+      <div class="card" style="margin-bottom:1rem;">
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem;">
+          <div style="width:40px;height:40px;border-radius:0.5rem;background:rgba(245,158,11,0.15);display:flex;align-items:center;justify-content:center;font-size:1.25rem;">🎵</div>
+          <div><div style="font-weight:700;">Discogs Integration</div><div style="font-size:0.78rem;color:rgba(255,255,255,0.4);">Sync your real vinyl collection</div></div>
+          <span class="badge badge-amber" style="margin-left:auto;">Coming soon</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:0.75rem;">
+          <div><label class="stat-label" style="display:block;margin-bottom:0.3rem;">Discogs Username</label><input v-model="store.settings.discogsUsername" class="input-dark" placeholder="your-discogs-username"/></div>
+          <div><label class="stat-label" style="display:block;margin-bottom:0.3rem;">Personal Access Token</label><input v-model="store.settings.discogsToken" class="input-dark" type="password" placeholder="Get from discogs.com/settings/developers"/></div>
+          <button class="btn-primary" disabled style="opacity:0.5;cursor:not-allowed;width:fit-content;">Connect Discogs</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:1rem;">
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem;">
+          <div style="width:40px;height:40px;border-radius:0.5rem;background:rgba(96,165,250,0.15);display:flex;align-items:center;justify-content:center;font-size:1.25rem;">🌧️</div>
+          <div><div style="font-weight:700;">Rotterdam Weather</div><div style="font-size:0.78rem;color:rgba(255,255,255,0.4);">Powers the spin recommendation engine</div></div>
+          <span v-if="store.settings.openWeatherKey" class="badge badge-green" style="margin-left:auto;">Active</span>
+          <span v-else class="badge badge-amber" style="margin-left:auto;">Demo mode</span>
+        </div>
+        <div>
+          <label class="stat-label" style="display:block;margin-bottom:0.3rem;">OpenWeatherMap API Key</label>
+          <div style="display:flex;gap:0.5rem;">
+            <input v-model="store.settings.openWeatherKey" class="input-dark" type="password" placeholder="Free key from openweathermap.org"/>
+            <button class="btn-primary" @click="testWeather">Test</button>
+          </div>
+          <div v-if="weatherStatus" style="font-size:0.78rem;margin-top:0.4rem;" :class="weatherStatus.ok ? 'positive' : 'negative'">{{ weatherStatus.msg }}</div>
+          <div style="font-size:0.75rem;color:rgba(255,255,255,0.35);margin-top:0.5rem;">Without a key, demo weather data (Rotterdam rainy 🌧️) is used.</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:1rem;opacity:0.6;">
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1rem;">
+          <div style="width:40px;height:40px;border-radius:0.5rem;background:rgba(16,185,129,0.15);display:flex;align-items:center;justify-content:center;font-size:1.25rem;">🎧</div>
+          <div><div style="font-weight:700;">Spotify Integration</div><div style="font-size:0.78rem;color:rgba(255,255,255,0.4);">Cross-reference streaming data with vinyl collection</div></div>
+          <span class="badge badge-purple" style="margin-left:auto;">Roadmap</span>
+        </div>
+        <div style="font-size:0.82rem;color:rgba(255,255,255,0.4);">Link Spotify to see which of your vinyl records you also stream — and identify gaps in your collection vs. your saved albums.</div>
+      </div>
+
+      <div class="card">
+        <div style="font-weight:700;margin-bottom:0.75rem;">About this Dashboard</div>
+        <div style="font-size:0.82rem;color:rgba(255,255,255,0.5);line-height:1.6;">Built for Nick Mahn — vinyl head & Data Analyst from Rotterdam. Combines collection management, value tracking, and a data-driven spin recommendation engine that listens to Rotterdam weather, the time of day, and your heart rate.</div>
+        <div style="margin-top:0.75rem;display:flex;gap:0.4rem;flex-wrap:wrap;">
+          <span class="badge badge-purple">Vue 3</span><span class="badge badge-pink">Chart.js</span><span class="badge badge-teal">Pinia</span><span class="badge badge-amber">OpenWeatherMap</span><span class="badge badge-green">Discogs API</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+import { useCollectionStore } from '../stores/collection.js'
+
+const store = useCollectionStore()
+const weatherStatus = ref(null)
+
+async function testWeather() {
+  if (!store.settings.openWeatherKey) return
+  try {
+    const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=51.9225&lon=4.4792&appid=${store.settings.openWeatherKey}&units=metric`)
+    if (res.ok) {
+      const d = await res.json()
+      weatherStatus.value = { ok: true, msg: `✓ Connected! Rotterdam: ${Math.round(d.main.temp)}°C, ${d.weather[0].description}` }
+    } else {
+      weatherStatus.value = { ok: false, msg: '✗ Invalid API key' }
+    }
+  } catch {
+    weatherStatus.value = { ok: false, msg: '✗ Connection failed' }
+  }
+}
+</script>

@@ -1,0 +1,118 @@
+<template>
+  <div class="fade-in">
+    <div class="card glow-purple" style="margin-bottom:1.25rem; position:relative; overflow:hidden;">
+      <div style="position:absolute;inset:0;opacity:0.08;background:linear-gradient(135deg,#7c3aed,#db2777);pointer-events:none;"></div>
+      <div style="display:flex; gap:1.25rem; align-items:center; flex-wrap:wrap;">
+        <div style="position:relative; width:100px; height:100px; flex-shrink:0;">
+          <div :class="['vinyl-spin', isPlaying ? '' : 'vinyl-spin-paused']" style="width:100px;height:100px;border-radius:50%;background:radial-gradient(circle at 50%,#2a2a2a 18%,#111 18%,#111 22%,#222 22%,#333 38%,#111 38%,#222 55%,#111 55%,#333 70%,#111 70%);box-shadow:0 0 20px rgba(124,58,237,0.5);display:flex;align-items:center;justify-content:center;">
+            <div style="width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#db2777);"></div>
+          </div>
+          <img v-if="topPick" :src="topPick.cover" :alt="topPick.title" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:36px;height:36px;border-radius:50%;object-fit:cover;z-index:2;" @error="e => e.target.style.display='none'" />
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.4rem;">
+            <span style="font-size:1.3rem;">🎯</span>
+            <span style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.4);font-weight:700;">Tonight's Top Pick</span>
+          </div>
+          <div v-if="topPick" style="font-size:1.5rem;font-weight:800;line-height:1.2;" class="gradient-text">{{ topPick.title }}</div>
+          <div v-if="topPick" style="color:rgba(255,255,255,0.6);margin-top:0.2rem;">{{ topPick.artist }} · {{ topPick.year }}</div>
+          <div v-if="topPick" style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.6rem;">
+            <span v-for="r in topPick.reasons.slice(0,3)" :key="r.text" class="badge badge-purple" style="display:inline-flex;align-items:center;gap:0.25rem;">{{ r.icon }} {{ r.text }}</span>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:0.5rem;align-items:center;">
+          <button class="btn-primary" @click="togglePlay">{{ isPlaying ? '⏸ Pause' : '▶ Spin it' }}</button>
+          <button class="btn-secondary" @click="store.incrementPlays(topPick?.id)" :disabled="!topPick">Log play</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+      <div class="card">
+        <div class="stat-label" style="margin-bottom:0.75rem;">Context</div>
+        <div style="display:flex;align-items:center;gap:0.75rem;padding:0.75rem;background:rgba(255,255,255,0.04);border-radius:0.5rem;margin-bottom:0.75rem;">
+          <div style="font-size:2rem;">{{ weather?.icon || '🌡️' }}</div>
+          <div>
+            <div style="font-weight:600;font-size:0.9rem;">{{ weather?.label || 'Loading…' }}<span v-if="weather" style="color:rgba(255,255,255,0.5);font-weight:400;"> · {{ weather.temp }}°C</span></div>
+            <div style="font-size:0.75rem;color:rgba(255,255,255,0.45);">Rotterdam · {{ weather?.vibe }}</div>
+          </div>
+          <div v-if="weatherDemo" style="margin-left:auto;"><span class="badge badge-amber">Demo</span></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.75rem;padding:0.75rem;background:rgba(255,255,255,0.04);border-radius:0.5rem;margin-bottom:0.75rem;">
+          <div style="font-size:2rem;">{{ timeMood?.icon || '🕐' }}</div>
+          <div>
+            <div style="font-weight:600;font-size:0.9rem;">{{ timeMood?.label || 'Unknown' }}</div>
+            <div style="font-size:0.75rem;color:rgba(255,255,255,0.45);">{{ timeMood?.vibe }}</div>
+          </div>
+          <div style="margin-left:auto;font-size:1.1rem;font-weight:700;color:rgba(255,255,255,0.6);">{{ currentTime }}</div>
+        </div>
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.4rem;">
+            <label style="font-size:0.8rem;color:rgba(255,255,255,0.6);">💓 Heart Rate (bpm)</label>
+            <span v-if="hrZone" class="badge" :class="hrZoneBadge">{{ hrZone.icon }} {{ hrZone.label }}</span>
+          </div>
+          <input v-model.number="heartRate" type="range" min="50" max="180" style="width:100%;accent-color:#a78bfa;" />
+          <div style="display:flex;justify-content:space-between;font-size:0.7rem;color:rgba(255,255,255,0.35);margin-top:0.2rem;">
+            <span>50 – Rest</span>
+            <span style="font-weight:700;color:#a78bfa;font-size:0.85rem;">{{ heartRate }} bpm</span>
+            <span>180 – Max</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="stat-label" style="margin-bottom:0.75rem;">Full Rankings</div>
+        <div style="display:flex;flex-direction:column;gap:0.5rem;">
+          <div v-for="(rec, i) in recommendations" :key="rec.id" style="display:flex;align-items:center;gap:0.75rem;padding:0.5rem;border-radius:0.5rem;cursor:pointer;transition:background 0.15s;" :style="i===0?'background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.3);':'border:1px solid transparent;'" @mouseenter="e => { if(i>0) e.currentTarget.style.background='rgba(255,255,255,0.04)' }" @mouseleave="e => { if(i>0) e.currentTarget.style.background='transparent' }">
+            <div style="font-size:0.75rem;font-weight:800;width:1.2rem;text-align:center;" :class="i===0?'gradient-text':''">{{ i+1 }}</div>
+            <img :src="rec.cover" :alt="rec.title" style="width:38px;height:38px;border-radius:0.3rem;object-fit:cover;" @error="e => e.target.style.display='none'" />
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:0.82rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ rec.title }}</div>
+              <div style="font-size:0.7rem;color:rgba(255,255,255,0.45);">{{ rec.artist }}</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:0.75rem;font-weight:700;" :class="i===0?'gradient-text':''">{{ rec.score }}pt</div>
+              <div style="font-size:0.65rem;color:rgba(255,255,255,0.35);">{{ rec.reasons.length }} match{{ rec.reasons.length!==1?'es':'' }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { useCollectionStore } from '../stores/collection.js'
+import { useWeather } from '../composables/useWeather.js'
+import { useRecommendation } from '../composables/useRecommendation.js'
+
+const store = useCollectionStore()
+const heartRate = ref(72)
+const isPlaying = ref(false)
+const currentTime = ref('')
+
+const { weather, timeMood, usingDemo: weatherDemo } = useWeather(computed(() => store.settings.openWeatherKey))
+const { recommendations, topPick, getHrZoneInfo } = useRecommendation(computed(() => store.records), weather, timeMood, heartRate)
+
+const hrZone = computed(() => getHrZoneInfo(heartRate.value))
+const hrZoneBadge = computed(() => {
+  const z = hrZone.value?.label?.toLowerCase() || ''
+  if (z.includes('max') || z.includes('intense')) return 'badge-red'
+  if (z.includes('active') || z.includes('moderate')) return 'badge-amber'
+  return 'badge-teal'
+})
+
+function togglePlay() {
+  isPlaying.value = !isPlaying.value
+  if (isPlaying.value && topPick.value) store.incrementPlays(topPick.value.id)
+}
+
+function updateClock() {
+  currentTime.value = new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
+}
+
+let clockTimer
+onMounted(() => { updateClock(); clockTimer = setInterval(updateClock, 30000) })
+onUnmounted(() => clearInterval(clockTimer))
+</script>

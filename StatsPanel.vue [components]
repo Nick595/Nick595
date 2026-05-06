@@ -1,0 +1,80 @@
+<template>
+  <div class="fade-in" style="display:flex;flex-direction:column;gap:1rem;">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:0.75rem;">
+      <div class="card-sm" style="border:1px solid rgba(124,58,237,0.3);"><div class="stat-label">Records</div><div class="stat-value gradient-text">{{ store.records.length }}</div><div class="stat-delta neutral">in collection</div></div>
+      <div class="card-sm" style="border:1px solid rgba(236,72,153,0.3);"><div class="stat-label">Portfolio Value</div><div class="stat-value" style="font-size:1.2rem;">€{{ formatNum(store.totalValue) }}</div><div class="stat-delta positive">+{{ store.profitPercent }}% ROI</div></div>
+      <div class="card-sm" style="border:1px solid rgba(20,184,166,0.3);"><div class="stat-label">Total Plays</div><div class="stat-value" style="font-size:1.2rem;">{{ totalPlays }}</div><div class="stat-delta neutral">across all records</div></div>
+      <div class="card-sm" style="border:1px solid rgba(245,158,11,0.3);"><div class="stat-label">Avg Record Value</div><div class="stat-value" style="font-size:1.2rem;">€{{ formatNum(avgValue) }}</div><div class="stat-delta neutral">per record</div></div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;"><span>📈</span><span style="font-weight:700;">Top Gainers</span></div>
+        <div style="display:flex;flex-direction:column;gap:0.5rem;">
+          <div v-for="r in store.topGainers" :key="r.id" style="display:flex;align-items:center;gap:0.75rem;">
+            <img :src="r.cover" :alt="r.title" style="width:36px;height:36px;border-radius:0.3rem;object-fit:cover;" @error="e=>e.target.style.display='none'"/>
+            <div style="flex:1;min-width:0;"><div style="font-size:0.82rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ r.title }}</div><div style="font-size:0.7rem;color:rgba(255,255,255,0.45);">€{{ r.purchasePrice }} → €{{ r.currentValue }}</div></div>
+            <span class="badge badge-green">+{{ r.gainPct }}%</span>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;"><span>🎵</span><span style="font-weight:700;">Most Played</span></div>
+        <div style="display:flex;flex-direction:column;gap:0.5rem;">
+          <div v-for="(r, i) in store.mostPlayedRecords" :key="r.id" style="display:flex;align-items:center;gap:0.75rem;">
+            <div style="width:1.2rem;text-align:center;font-size:0.75rem;font-weight:800;color:rgba(255,255,255,0.3);">{{ i+1 }}</div>
+            <img :src="r.cover" :alt="r.title" style="width:36px;height:36px;border-radius:0.3rem;object-fit:cover;" @error="e=>e.target.style.display='none'"/>
+            <div style="flex:1;min-width:0;"><div style="font-size:0.82rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ r.title }}</div><div style="font-size:0.7rem;color:rgba(255,255,255,0.45);">{{ r.artist }}</div></div>
+            <div style="text-align:right;font-size:0.8rem;font-weight:700;color:#a78bfa;">{{ r.plays }}×</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:1rem;">📅 Records by Decade</div>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+        <div v-for="d in decadeData" :key="d.decade" class="card-sm glass-hover" style="flex:1;min-width:100px;text-align:center;cursor:default;">
+          <div style="font-size:1.5rem;font-weight:800;" class="gradient-text">{{ d.count }}</div>
+          <div style="font-size:0.75rem;color:rgba(255,255,255,0.6);margin-top:0.2rem;">{{ d.decade }}s</div>
+          <div style="height:4px;background:rgba(255,255,255,0.07);border-radius:2px;margin-top:0.5rem;overflow:hidden;">
+            <div style="height:100%;background:linear-gradient(135deg,#a78bfa,#f472b6);border-radius:2px;transition:width 0.5s;" :style="{ width: d.pct + '%' }"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="font-weight:700;margin-bottom:1rem;">💿 Condition Overview</div>
+      <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+        <div v-for="c in conditionData" :key="c.label" style="display:flex;align-items:center;gap:0.5rem;">
+          <span class="badge" :class="c.badge">{{ c.label }}</span>
+          <span style="font-size:0.85rem;font-weight:600;">{{ c.count }}</span>
+          <span style="font-size:0.75rem;color:rgba(255,255,255,0.4);">records</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { computed } from 'vue'
+import { useCollectionStore } from '../stores/collection.js'
+
+const store = useCollectionStore()
+function formatNum(n) { return Math.round(n).toLocaleString('nl-NL') }
+const totalPlays = computed(() => store.records.reduce((s, r) => s + r.plays, 0))
+const avgValue = computed(() => store.records.length ? store.totalValue / store.records.length : 0)
+const decadeData = computed(() => {
+  const map = {}
+  store.records.forEach(r => { const d = Math.floor(r.year / 10) * 10; map[d] = (map[d] || 0) + 1 })
+  const max = Math.max(...Object.values(map))
+  return Object.entries(map).sort((a, b) => Number(a[0]) - Number(b[0])).map(([decade, count]) => ({ decade, count, pct: Math.round((count / max) * 100) }))
+})
+const conditionData = computed(() => {
+  const map = {}
+  store.records.forEach(r => { map[r.condition] = (map[r.condition] || 0) + 1 })
+  const badgeMap = { M: 'badge-green', 'VG+': 'badge-teal', VG: 'badge-amber', G: 'badge-red' }
+  return Object.entries(map).sort((a, b) => b[1] - a[1]).map(([label, count]) => ({ label, count, badge: badgeMap[label] || 'badge-purple' }))
+})
+</script>

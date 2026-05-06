@@ -1,0 +1,82 @@
+import { defineStore } from 'pinia'
+import { ref, computed } from 'vue'
+
+// Realistic demo collection — Nick's Rotterdam vinyl stash
+const DEMO_COLLECTION = [
+  { id: 1, title: 'Unknown Pleasures', artist: 'Joy Division', year: 1979, genre: 'Post-Punk', label: 'Factory', condition: 'VG+', purchasePrice: 28, currentValue: 85, purchaseDate: '2021-03-12', cover: 'https://upload.wikimedia.org/wikipedia/en/a/a0/Joy_Division_-_Unknown_Pleasures.png', plays: 47, mood: ['dark','introspective','rainy'], timeOfDay: ['evening','night'], bpm: 130 },
+  { id: 2, title: 'Selected Ambient Works 85-92', artist: 'Aphex Twin', year: 1992, genre: 'Electronic', label: 'Apollo', condition: 'M', purchasePrice: 55, currentValue: 160, purchaseDate: '2020-08-05', cover: 'https://upload.wikimedia.org/wikipedia/en/4/48/Aphex_Twin_-_Selected_Ambient_Works_85-92.png', plays: 89, mood: ['chill','focused','night'], timeOfDay: ['night','late night'], bpm: 98 },
+  { id: 3, title: 'Blue Lines', artist: 'Massive Attack', year: 1991, genre: 'Trip-Hop', label: 'Wild Bunch', condition: 'VG+', purchasePrice: 22, currentValue: 65, purchaseDate: '2022-01-20', cover: 'https://upload.wikimedia.org/wikipedia/en/d/dc/MassiveAttackBlueLines.png', plays: 62, mood: ['chill','rainy','introspective'], timeOfDay: ['evening','night'], bpm: 86 },
+  { id: 4, title: 'Homework', artist: 'Daft Punk', year: 1997, genre: 'Electronic', label: 'Virgin', condition: 'VG+', purchasePrice: 35, currentValue: 95, purchaseDate: '2019-11-08', cover: 'https://upload.wikimedia.org/wikipedia/en/0/09/Daft_Punk_Homework.jpg', plays: 113, mood: ['energetic','party','workout'], timeOfDay: ['afternoon','evening'], bpm: 127 },
+  { id: 5, title: 'Kind of Blue', artist: 'Miles Davis', year: 1959, genre: 'Jazz', label: 'Columbia', condition: 'VG', purchasePrice: 18, currentValue: 45, purchaseDate: '2021-06-30', cover: 'https://upload.wikimedia.org/wikipedia/en/5/5c/KindOfBlue.jpg', plays: 34, mood: ['chill','morning','focused'], timeOfDay: ['morning','afternoon'], bpm: 100 },
+  { id: 6, title: 'Abbey Road', artist: 'The Beatles', year: 1969, genre: 'Rock', label: 'Apple', condition: 'VG+', purchasePrice: 45, currentValue: 120, purchaseDate: '2018-04-14', cover: 'https://upload.wikimedia.org/wikipedia/en/4/42/Beatles_-_Abbey_Road.jpg', plays: 78, mood: ['happy','sunny','afternoon'], timeOfDay: ['morning','afternoon'], bpm: 121 },
+  { id: 7, title: 'In Rainbows', artist: 'Radiohead', year: 2007, genre: 'Art Rock', label: 'Self-released', condition: 'M', purchasePrice: 40, currentValue: 75, purchaseDate: '2022-09-15', cover: 'https://upload.wikimedia.org/wikipedia/en/3/3e/In_Rainbows_Official_Cover.jpg', plays: 55, mood: ['introspective','rainy','focused'], timeOfDay: ['evening','night'], bpm: 104 },
+  { id: 8, title: 'Burial', artist: 'Burial', year: 2006, genre: 'Electronic', label: 'Hyperdub', condition: 'VG+', purchasePrice: 30, currentValue: 130, purchaseDate: '2023-02-28', cover: 'https://upload.wikimedia.org/wikipedia/en/2/2e/Burial_Burial.png', plays: 41, mood: ['dark','rainy','night'], timeOfDay: ['night','late night'], bpm: 140 },
+  { id: 9, title: 'Random Access Memories', artist: 'Daft Punk', year: 2013, genre: 'Electronic', label: 'Columbia', condition: 'M', purchasePrice: 60, currentValue: 90, purchaseDate: '2020-12-25', cover: 'https://upload.wikimedia.org/wikipedia/en/a/a7/Random_Access_Memories.jpg', plays: 92, mood: ['happy','sunny','evening'], timeOfDay: ['afternoon','evening'], bpm: 108 },
+  { id: 10, title: 'Autobahn', artist: 'Kraftwerk', year: 1974, genre: 'Electronic', label: 'Philips', condition: 'VG', purchasePrice: 25, currentValue: 80, purchaseDate: '2021-07-04', cover: 'https://upload.wikimedia.org/wikipedia/en/8/8e/Kraftwerk_-_Autobahn.jpg', plays: 29, mood: ['focused','driving','morning'], timeOfDay: ['morning','afternoon'], bpm: 120 },
+  { id: 11, title: 'Innervisions', artist: 'Stevie Wonder', year: 1973, genre: 'Soul', label: 'Tamla', condition: 'VG+', purchasePrice: 32, currentValue: 70, purchaseDate: '2022-05-18', cover: 'https://upload.wikimedia.org/wikipedia/en/5/58/Innervisions.jpg', plays: 44, mood: ['happy','sunny','afternoon'], timeOfDay: ['morning','afternoon','evening'], bpm: 105 },
+  { id: 12, title: 'Dummy', artist: 'Portishead', year: 1994, genre: 'Trip-Hop', label: 'Go! Discs', condition: 'VG+', purchasePrice: 28, currentValue: 60, purchaseDate: '2023-01-10', cover: 'https://upload.wikimedia.org/wikipedia/en/0/0d/Portishead_-_Dummy.png', plays: 38, mood: ['dark','rainy','introspective'], timeOfDay: ['evening','night'], bpm: 88 },
+]
+
+function generateValueHistory(startVal, endVal, months = 12) {
+  const data = []
+  for (let i = 0; i < months; i++) {
+    const progress = i / (months - 1)
+    const base = startVal + (endVal - startVal) * progress
+    const noise = (Math.random() - 0.5) * base * 0.1
+    data.push(Math.round(base + noise))
+  }
+  return data
+}
+
+export const useCollectionStore = defineStore('collection', () => {
+  const records = ref(DEMO_COLLECTION.map(r => ({
+    ...r,
+    valueHistory: generateValueHistory(Math.round(r.currentValue * 0.6), r.currentValue)
+  })))
+
+  const wantList = ref([
+    { id: 101, title: 'Music Has the Right to Children', artist: 'Boards of Canada', year: 1998, genre: 'Electronic', estValue: 120, priority: 'high', notes: 'Been hunting this for 2 years' },
+    { id: 102, title: 'For All We Know', artist: 'Donny Hathaway', year: 1970, genre: 'Soul', estValue: 45, priority: 'medium', notes: 'Original pressing preferred' },
+    { id: 103, title: 'Loveless', artist: 'My Bloody Valentine', year: 1991, genre: 'Shoegaze', estValue: 200, priority: 'high', notes: 'Original Creation Records pressing' },
+    { id: 104, title: 'Endtroducing...', artist: 'DJ Shadow', year: 1996, genre: 'Hip-Hop', estValue: 80, priority: 'low', notes: '' },
+  ])
+
+  const settings = ref({ discogsUsername: '', discogsToken: '', openWeatherKey: '', currency: 'EUR' })
+  const currentView = ref('dashboard')
+
+  const totalValue = computed(() => records.value.reduce((s, r) => s + r.currentValue, 0))
+  const totalCost = computed(() => records.value.reduce((s, r) => s + r.purchasePrice, 0))
+  const totalProfit = computed(() => totalValue.value - totalCost.value)
+  const profitPercent = computed(() => totalCost.value > 0 ? ((totalProfit.value / totalCost.value) * 100).toFixed(1) : 0)
+
+  const genreBreakdown = computed(() => {
+    const map = {}
+    records.value.forEach(r => { map[r.genre] = (map[r.genre] || 0) + r.currentValue })
+    return Object.entries(map).sort((a, b) => b[1] - a[1]).map(([genre, value]) => ({ genre, value }))
+  })
+
+  const mostPlayedRecords = computed(() => [...records.value].sort((a, b) => b.plays - a.plays).slice(0, 5))
+  const newestRecords = computed(() => [...records.value].sort((a, b) => new Date(b.purchaseDate) - new Date(a.purchaseDate)).slice(0, 5))
+  const topGainers = computed(() =>
+    [...records.value]
+      .map(r => ({ ...r, gain: r.currentValue - r.purchasePrice, gainPct: ((r.currentValue - r.purchasePrice) / r.purchasePrice * 100).toFixed(1) }))
+      .sort((a, b) => b.gainPct - a.gainPct).slice(0, 5)
+  )
+  const collectionValueHistory = computed(() => {
+    const totals = Array(12).fill(0)
+    records.value.forEach(r => { r.valueHistory.forEach((v, i) => { totals[i] += v }) })
+    return totals
+  })
+
+  function addToWantList(item) { wantList.value.push({ ...item, id: Date.now() }) }
+  function removeFromWantList(id) { wantList.value = wantList.value.filter(w => w.id !== id) }
+  function markAsOwned(id) { wantList.value = wantList.value.filter(w => w.id !== id) }
+  function incrementPlays(id) { const r = records.value.find(r => r.id === id); if (r) r.plays++ }
+
+  return {
+    records, wantList, settings, currentView,
+    totalValue, totalCost, totalProfit, profitPercent,
+    genreBreakdown, mostPlayedRecords, newestRecords, topGainers, collectionValueHistory,
+    addToWantList, removeFromWantList, markAsOwned, incrementPlays
+  }
+})

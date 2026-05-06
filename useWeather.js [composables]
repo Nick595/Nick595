@@ -1,0 +1,73 @@
+import { ref, onMounted } from 'vue'
+
+const ROTTERDAM_LAT = 51.9225
+const ROTTERDAM_LON = 4.4792
+
+const WEATHER_MOODS = {
+  Clear: { mood: 'sunny', label: 'Sunny', icon: '☀️', vibe: 'Bright & energetic', color: '#f59e0b' },
+  Clouds: { mood: 'cloudy', label: 'Cloudy', icon: '☁️', vibe: 'Mellow & laid-back', color: '#94a3b8' },
+  Rain: { mood: 'rainy', label: 'Rainy', icon: '🌧️', vibe: 'Introspective & moody', color: '#60a5fa' },
+  Drizzle: { mood: 'rainy', label: 'Drizzle', icon: '🌦️', vibe: 'Contemplative', color: '#93c5fd' },
+  Thunderstorm: { mood: 'dark', label: 'Storm', icon: '⛈️', vibe: 'Intense & dramatic', color: '#8b5cf6' },
+  Snow: { mood: 'chill', label: 'Snow', icon: '❄️', vibe: 'Cosy & ambient', color: '#bfdbfe' },
+  Mist: { mood: 'introspective', label: 'Misty', icon: '🌫️', vibe: 'Dreamy & hazy', color: '#d1d5db' },
+  Fog: { mood: 'introspective', label: 'Foggy', icon: '🌫️', vibe: 'Ethereal & atmospheric', color: '#9ca3af' },
+}
+
+function getTimeMood(hour) {
+  if (hour >= 6 && hour < 10)  return { period: 'morning',    label: 'Morning',    icon: '🌅', vibe: 'Fresh start, focused' }
+  if (hour >= 10 && hour < 14) return { period: 'afternoon',  label: 'Afternoon',  icon: '🌞', vibe: 'Productive & upbeat' }
+  if (hour >= 14 && hour < 18) return { period: 'afternoon',  label: 'Late Arvo',  icon: '🌤️', vibe: 'Cruising mode' }
+  if (hour >= 18 && hour < 21) return { period: 'evening',    label: 'Evening',    icon: '🌆', vibe: 'Wind-down vibes' }
+  if (hour >= 21 && hour < 24) return { period: 'night',      label: 'Night',      icon: '🌙', vibe: 'Deep & immersive' }
+  return { period: 'late night', label: 'Late Night', icon: '🌃', vibe: 'Nocturnal & hypnotic' }
+}
+
+export function useWeather(apiKey) {
+  const weather = ref(null)
+  const timeMood = ref(null)
+  const loading = ref(false)
+  const error = ref(null)
+  const usingDemo = ref(false)
+
+  const DEMO_WEATHER = {
+    temp: 14, feelsLike: 12, description: 'light rain', condition: 'Rain',
+    humidity: 82, windSpeed: 5.2, city: 'Rotterdam', ...WEATHER_MOODS['Rain']
+  }
+
+  async function fetchWeather(key) {
+    const token = key || (typeof apiKey === 'object' ? apiKey.value : apiKey)
+    if (!token) {
+      weather.value = DEMO_WEATHER
+      usingDemo.value = true
+      timeMood.value = getTimeMood(new Date().getHours())
+      return
+    }
+    loading.value = true
+    error.value = null
+    try {
+      const url = `https://api.openweathermap.org/data/2.5/weather?lat=${ROTTERDAM_LAT}&lon=${ROTTERDAM_LON}&appid=${token}&units=metric`
+      const res = await fetch(url)
+      if (!res.ok) throw new Error('Weather API error')
+      const data = await res.json()
+      const conditionKey = data.weather[0].main
+      const moodData = WEATHER_MOODS[conditionKey] || { mood: 'chill', label: conditionKey, icon: '🌡️', vibe: 'Varied', color: '#94a3b8' }
+      weather.value = {
+        temp: Math.round(data.main.temp), feelsLike: Math.round(data.main.feels_like),
+        description: data.weather[0].description, condition: conditionKey,
+        humidity: data.main.humidity, windSpeed: data.wind.speed, city: data.name, ...moodData
+      }
+      usingDemo.value = false
+    } catch (e) {
+      error.value = e.message
+      weather.value = DEMO_WEATHER
+      usingDemo.value = true
+    } finally {
+      loading.value = false
+      timeMood.value = getTimeMood(new Date().getHours())
+    }
+  }
+
+  onMounted(() => fetchWeather())
+  return { weather, timeMood, loading, error, usingDemo, fetchWeather, getTimeMood }
+}

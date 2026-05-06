@@ -1,0 +1,112 @@
+<template>
+  <div class="fade-in">
+    <div style="display:flex; gap:0.75rem; margin-bottom:1.25rem; flex-wrap:wrap; align-items:center;">
+      <input v-model="search" class="input-dark" style="max-width:240px;" placeholder="🔍 Search artist, title..."/>
+      <select v-model="filterGenre" class="input-dark" style="max-width:160px;">
+        <option value="">All genres</option>
+        <option v-for="g in genres" :key="g">{{ g }}</option>
+      </select>
+      <select v-model="sortBy" class="input-dark" style="max-width:160px;">
+        <option value="value">Sort: Value ↓</option>
+        <option value="artist">Sort: Artist A-Z</option>
+        <option value="year">Sort: Year ↓</option>
+        <option value="plays">Sort: Most played</option>
+        <option value="gain">Sort: Best gain</option>
+      </select>
+      <div style="margin-left:auto; color:rgba(255,255,255,0.4); font-size:0.8rem;">{{ filtered.length }} records · €{{ formatNum(filteredValue) }} total</div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:1rem;">
+      <div v-for="record in filtered" :key="record.id" class="card glass-hover" style="padding:0; overflow:hidden; cursor:pointer; position:relative;" @click="selected = record">
+        <div style="aspect-ratio:1; overflow:hidden; background:#111; position:relative;">
+          <img :src="record.cover" :alt="record.title" style="width:100%;height:100%;object-fit:cover; transition: transform 0.3s;" @mouseenter="e => e.target.style.transform='scale(1.06)'" @mouseleave="e => e.target.style.transform='scale(1)'" @error="e => e.target.src = fallbackCover(record)"/>
+          <div style="position:absolute;top:0.5rem;right:0.5rem;"><span class="badge badge-purple">€{{ record.currentValue }}</span></div>
+          <div style="position:absolute;bottom:0.5rem;left:0.5rem; font-size:0.7rem; color:rgba(255,255,255,0.7); background:rgba(0,0,0,0.6); padding:0.15rem 0.4rem; border-radius:4px;">▶ {{ record.plays }}</div>
+        </div>
+        <div style="padding:0.75rem;">
+          <div style="font-weight:600; font-size:0.85rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ record.title }}</div>
+          <div style="font-size:0.75rem; color:rgba(255,255,255,0.5); margin-top:0.15rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ record.artist }}</div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:0.5rem;">
+            <span class="badge badge-teal" style="font-size:0.6rem;">{{ record.genre }}</span>
+            <span style="font-size:0.7rem;" :class="gainClass(record)">{{ gainSymbol(record) }}{{ Math.abs(record.currentValue - record.purchasePrice) }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <Teleport to="body">
+      <div v-if="selected" style="position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:100;display:flex;align-items:center;justify-content:center;padding:1.5rem;" @click.self="selected=null">
+        <div class="card" style="max-width:520px;width:100%;max-height:90vh;overflow-y:auto;">
+          <div style="display:flex; gap:1.25rem; align-items:flex-start;">
+            <img :src="selected.cover" :alt="selected.title" style="width:120px;height:120px;object-fit:cover;border-radius:0.5rem;flex-shrink:0;" @error="e => e.target.src = fallbackCover(selected)"/>
+            <div style="flex:1; min-width:0;">
+              <div style="font-size:1.25rem;font-weight:800;line-height:1.2;">{{ selected.title }}</div>
+              <div style="color:rgba(255,255,255,0.6);margin-top:0.25rem;">{{ selected.artist }}</div>
+              <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.6rem;">
+                <span class="badge badge-teal">{{ selected.genre }}</span>
+                <span class="badge badge-purple">{{ selected.year }}</span>
+                <span class="badge badge-amber">{{ selected.condition }}</span>
+              </div>
+              <div style="color:rgba(255,255,255,0.5);font-size:0.8rem;margin-top:0.6rem;">{{ selected.label }}</div>
+            </div>
+            <button class="btn-secondary" style="padding:0.3rem 0.6rem;" @click="selected=null">✕</button>
+          </div>
+          <div class="divider"></div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.75rem;">
+            <div class="card-sm" style="text-align:center;"><div class="stat-label">Paid</div><div style="font-weight:700;">€{{ selected.purchasePrice }}</div></div>
+            <div class="card-sm" style="text-align:center;"><div class="stat-label">Value</div><div style="font-weight:700;" class="gradient-text">€{{ selected.currentValue }}</div></div>
+            <div class="card-sm" style="text-align:center;"><div class="stat-label">Gain</div><div style="font-weight:700;" :class="gainClass(selected)">{{ gainSymbol(selected) }}€{{ Math.abs(selected.currentValue - selected.purchasePrice) }}</div></div>
+          </div>
+          <div class="divider"></div>
+          <div style="display:flex;gap:1.5rem;font-size:0.85rem;color:rgba(255,255,255,0.6);">
+            <div>🗓 Bought: <span style="color:white;">{{ selected.purchaseDate }}</span></div>
+            <div>▶ Plays: <span style="color:white;">{{ selected.plays }}</span></div>
+            <div>🎚 BPM: <span style="color:white;">~{{ selected.bpm }}</span></div>
+          </div>
+          <div class="divider"></div>
+          <div style="display:flex;gap:0.5rem; flex-wrap:wrap;">
+            <span v-for="m in selected.mood" :key="m" class="badge badge-purple">{{ m }}</span>
+          </div>
+          <div style="margin-top:1rem;display:flex;gap:0.5rem;">
+            <button class="btn-primary" @click="store.incrementPlays(selected.id)">▶ Log a play</button>
+            <button class="btn-secondary" @click="selected=null">Close</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed } from 'vue'
+import { useCollectionStore } from '../stores/collection.js'
+
+const store = useCollectionStore()
+const search = ref('')
+const filterGenre = ref('')
+const sortBy = ref('value')
+const selected = ref(null)
+
+const genres = computed(() => [...new Set(store.records.map(r => r.genre))].sort())
+const filtered = computed(() => {
+  let list = store.records
+  if (search.value) { const q = search.value.toLowerCase(); list = list.filter(r => r.title.toLowerCase().includes(q) || r.artist.toLowerCase().includes(q)) }
+  if (filterGenre.value) list = list.filter(r => r.genre === filterGenre.value)
+  return [...list].sort((a, b) => {
+    if (sortBy.value === 'value')  return b.currentValue - a.currentValue
+    if (sortBy.value === 'artist') return a.artist.localeCompare(b.artist)
+    if (sortBy.value === 'year')   return b.year - a.year
+    if (sortBy.value === 'plays')  return b.plays - a.plays
+    if (sortBy.value === 'gain')   return (b.currentValue - b.purchasePrice) - (a.currentValue - a.purchasePrice)
+    return 0
+  })
+})
+const filteredValue = computed(() => filtered.value.reduce((s, r) => s + r.currentValue, 0))
+function gainClass(r) { return r.currentValue >= r.purchasePrice ? 'positive' : 'negative' }
+function gainSymbol(r) { return r.currentValue >= r.purchasePrice ? '+' : '-' }
+function formatNum(n) { return Math.round(n).toLocaleString('nl-NL') }
+function fallbackCover(r) {
+  const colors = ['7c3aed','db2777','f59e0b','14b8a6','3b82f6']
+  return `https://via.placeholder.com/300/${colors[r.id % colors.length]}/ffffff?text=${encodeURIComponent(r.artist.slice(0,2))}`
+}
+</script>

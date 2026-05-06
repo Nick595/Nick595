@@ -1,0 +1,82 @@
+<template>
+  <div class="fade-in">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;gap:0.75rem;">
+      <div>
+        <div style="font-weight:800;font-size:1.25rem;">Want List</div>
+        <div style="color:rgba(255,255,255,0.4);font-size:0.82rem;margin-top:0.15rem;">{{ store.wantList.length }} records on the radar · Est. €{{ formatNum(totalEstValue) }}</div>
+      </div>
+      <button class="btn-primary" @click="showAdd = true">+ Add Record</button>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:0.75rem;" v-if="store.wantList.length">
+      <div v-for="item in sortedList" :key="item.id" class="card glass-hover" style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap;">
+        <div style="width:4px;height:56px;border-radius:2px;flex-shrink:0;" :style="{ background: priorityColor(item.priority) }"></div>
+        <div style="flex:1;min-width:200px;">
+          <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.2rem;">
+            <span style="font-weight:700;font-size:0.95rem;">{{ item.title }}</span>
+            <span class="badge" :class="priorityBadge(item.priority)">{{ item.priority }}</span>
+          </div>
+          <div style="font-size:0.82rem;color:rgba(255,255,255,0.55);">{{ item.artist }} · {{ item.year }} · {{ item.genre }}</div>
+          <div v-if="item.notes" style="font-size:0.75rem;color:rgba(255,255,255,0.35);margin-top:0.2rem;font-style:italic;">{{ item.notes }}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;">
+          <div style="font-weight:700;font-size:1rem;" class="gradient-text">~€{{ item.estValue }}</div>
+          <div style="font-size:0.7rem;color:rgba(255,255,255,0.35);margin-top:0.1rem;">est. market value</div>
+        </div>
+        <div style="display:flex;gap:0.4rem;flex-shrink:0;">
+          <button class="btn-secondary" @click="store.markAsOwned(item.id)">✓ Got it</button>
+          <button class="btn-secondary" style="color:#ef4444;border-color:rgba(239,68,68,0.3);" @click="store.removeFromWantList(item.id)">✕</button>
+        </div>
+      </div>
+    </div>
+    <div v-else class="card" style="text-align:center;color:rgba(255,255,255,0.35);padding:3rem;">
+      <div style="font-size:2rem;margin-bottom:0.5rem;">🎯</div>
+      <div>Your want list is empty. Start hunting!</div>
+    </div>
+
+    <Teleport to="body">
+      <div v-if="showAdd" style="position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:100;display:flex;align-items:center;justify-content:center;padding:1.5rem;" @click.self="showAdd=false">
+        <div class="card" style="max-width:460px;width:100%;">
+          <div style="font-weight:800;font-size:1.1rem;margin-bottom:1.25rem;">Add to Want List</div>
+          <div style="display:flex;flex-direction:column;gap:0.75rem;">
+            <div><label class="stat-label" style="display:block;margin-bottom:0.3rem;">Artist *</label><input v-model="form.artist" class="input-dark" placeholder="e.g. Boards of Canada"/></div>
+            <div><label class="stat-label" style="display:block;margin-bottom:0.3rem;">Title *</label><input v-model="form.title" class="input-dark" placeholder="e.g. Music Has the Right to Children"/></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+              <div><label class="stat-label" style="display:block;margin-bottom:0.3rem;">Year</label><input v-model.number="form.year" type="number" class="input-dark" placeholder="1998"/></div>
+              <div><label class="stat-label" style="display:block;margin-bottom:0.3rem;">Genre</label><input v-model="form.genre" class="input-dark" placeholder="Electronic"/></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+              <div><label class="stat-label" style="display:block;margin-bottom:0.3rem;">Est. Value (€)</label><input v-model.number="form.estValue" type="number" class="input-dark" placeholder="80"/></div>
+              <div><label class="stat-label" style="display:block;margin-bottom:0.3rem;">Priority</label><select v-model="form.priority" class="input-dark"><option value="high">High</option><option value="medium">Medium</option><option value="low">Low</option></select></div>
+            </div>
+            <div><label class="stat-label" style="display:block;margin-bottom:0.3rem;">Notes</label><input v-model="form.notes" class="input-dark" placeholder="Original pressing, specific label, etc."/></div>
+          </div>
+          <div style="display:flex;gap:0.5rem;margin-top:1.25rem;">
+            <button class="btn-primary" :disabled="!form.artist || !form.title" @click="submit">Add to List</button>
+            <button class="btn-secondary" @click="showAdd=false">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, reactive } from 'vue'
+import { useCollectionStore } from '../stores/collection.js'
+
+const store = useCollectionStore()
+const showAdd = ref(false)
+const form = reactive({ artist: '', title: '', year: null, genre: '', estValue: null, priority: 'medium', notes: '' })
+const totalEstValue = computed(() => store.wantList.reduce((s, w) => s + (w.estValue || 0), 0))
+const sortedList = computed(() => { const order = { high: 0, medium: 1, low: 2 }; return [...store.wantList].sort((a, b) => order[a.priority] - order[b.priority]) })
+function priorityColor(p) { return p === 'high' ? '#ef4444' : p === 'medium' ? '#f59e0b' : '#6b7280' }
+function priorityBadge(p) { return p === 'high' ? 'badge-red' : p === 'medium' ? 'badge-amber' : 'badge-purple' }
+function formatNum(n) { return Math.round(n).toLocaleString('nl-NL') }
+function submit() {
+  if (!form.artist || !form.title) return
+  store.addToWantList({ ...form })
+  Object.assign(form, { artist: '', title: '', year: null, genre: '', estValue: null, priority: 'medium', notes: '' })
+  showAdd.value = false
+}
+</script>

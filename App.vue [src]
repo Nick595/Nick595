@@ -1,0 +1,109 @@
+<template>
+  <div style="display:flex;min-height:100vh;flex-direction:column;">
+    <header style="position:sticky;top:0;z-index:50;background:rgba(10,10,15,0.92);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,0.07);padding:0 1.5rem;height:60px;display:flex;align-items:center;gap:1rem;">
+      <div style="display:flex;align-items:center;gap:0.6rem;margin-right:1rem;flex-shrink:0;">
+        <div style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#7c3aed,#db2777);display:flex;align-items:center;justify-content:center;font-size:0.85rem;">💿</div>
+        <div>
+          <div style="font-weight:800;font-size:0.95rem;line-height:1;">VinylIQ</div>
+          <div style="font-size:0.6rem;color:rgba(255,255,255,0.35);letter-spacing:0.06em;">ROTTERDAM</div>
+        </div>
+      </div>
+      <nav style="display:flex;gap:0.25rem;overflow-x:auto;flex:1;">
+        <button v-for="item in navItems" :key="item.id" class="nav-link" :class="{ active: activeView === item.id }" @click="activeView = item.id">
+          <span>{{ item.icon }}</span><span>{{ item.label }}</span>
+        </button>
+      </nav>
+      <div style="flex-shrink:0;display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0.75rem;background:rgba(124,58,237,0.12);border:1px solid rgba(124,58,237,0.25);border-radius:999px;font-size:0.75rem;">
+        <span style="width:6px;height:6px;border-radius:50%;background:#10b981;" class="pulse-dot"></span>
+        <span style="color:rgba(255,255,255,0.6);">€</span>
+        <span style="font-weight:700;">{{ formatNum(store.totalValue) }}</span>
+        <span style="color:#10b981;font-size:0.7rem;">+{{ store.profitPercent }}%</span>
+      </div>
+    </header>
+    <main style="flex:1;padding:1.5rem;max-width:1400px;width:100%;margin:0 auto;">
+      <div v-if="activeView === 'dashboard'">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+          <ValueChart /><GenreChart />
+        </div>
+        <QuickSpin style="margin-bottom:1rem;" />
+        <StatsPanel />
+      </div>
+      <div v-else-if="activeView === 'collection'"><CollectionGrid /></div>
+      <div v-else-if="activeView === 'spin'">
+        <div style="margin-bottom:1rem;">
+          <div style="font-size:1.5rem;font-weight:800;line-height:1;">What Should I Spin? <span class="gradient-text">🎯</span></div>
+          <div style="color:rgba(255,255,255,0.4);font-size:0.85rem;margin-top:0.25rem;">The algorithm analyses Rotterdam weather, time of day, and your heart rate to find the perfect record.</div>
+        </div>
+        <SpinRecommendation />
+      </div>
+      <div v-else-if="activeView === 'stats'">
+        <div style="margin-bottom:1rem;">
+          <div style="font-size:1.5rem;font-weight:800;">Collection Analytics</div>
+          <div style="color:rgba(255,255,255,0.4);font-size:0.85rem;margin-top:0.25rem;">Deep dive into your vinyl data.</div>
+        </div>
+        <StatsPanel />
+      </div>
+      <div v-else-if="activeView === 'wantlist'"><WantList /></div>
+      <div v-else-if="activeView === 'settings'"><SettingsPanel /></div>
+    </main>
+    <footer style="border-top:1px solid rgba(255,255,255,0.06);padding:0.75rem 1.5rem;display:flex;justify-content:space-between;align-items:center;font-size:0.72rem;color:rgba(255,255,255,0.25);">
+      <span>VinylIQ · Built for Nick Mahn · Rotterdam 🇳🇱</span>
+      <span>{{ store.records.length }} records · €{{ formatNum(store.totalValue) }} portfolio</span>
+    </footer>
+  </div>
+</template>
+
+<script setup>
+import { ref, defineComponent, computed } from 'vue'
+import { useCollectionStore } from './stores/collection.js'
+import ValueChart from './components/ValueChart.vue'
+import GenreChart from './components/GenreChart.vue'
+import CollectionGrid from './components/CollectionGrid.vue'
+import SpinRecommendation from './components/SpinRecommendation.vue'
+import StatsPanel from './components/StatsPanel.vue'
+import WantList from './components/WantList.vue'
+import SettingsPanel from './components/SettingsPanel.vue'
+import { useWeather } from './composables/useWeather.js'
+import { useRecommendation } from './composables/useRecommendation.js'
+
+const store = useCollectionStore()
+const activeView = ref('dashboard')
+const navItems = [
+  { id: 'dashboard',  icon: '📊', label: 'Dashboard' },
+  { id: 'collection', icon: '💿', label: 'Collection' },
+  { id: 'spin',       icon: '🎯', label: 'What to Spin?' },
+  { id: 'stats',      icon: '📈', label: 'Analytics' },
+  { id: 'wantlist',   icon: '🎯', label: 'Want List' },
+  { id: 'settings',   icon: '⚙️',  label: 'Settings' },
+]
+function formatNum(n) { return Math.round(n).toLocaleString('nl-NL') }
+
+const QuickSpin = defineComponent({
+  name: 'QuickSpin',
+  setup() {
+    const s = useCollectionStore()
+    const { weather, timeMood, usingDemo } = useWeather(computed(() => s.settings.openWeatherKey))
+    const { topPick } = useRecommendation(computed(() => s.records), weather, timeMood, ref(72))
+    return { topPick, weather, timeMood, usingDemo, s }
+  },
+  template: `
+    <div class="card" style="display:flex;align-items:center;gap:1.25rem;cursor:pointer;position:relative;overflow:hidden;" @click="s.currentView = 'spin'">
+      <div style="position:absolute;inset:0;background:linear-gradient(135deg,rgba(124,58,237,0.08),rgba(219,39,119,0.05));pointer-events:none;"></div>
+      <div style="font-size:2rem;flex-shrink:0;">🎯</div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.1em;color:rgba(255,255,255,0.4);font-weight:700;margin-bottom:0.2rem;">Now Recommending</div>
+        <div v-if="topPick" style="font-weight:800;font-size:1.1rem;" class="gradient-text">{{ topPick.title }}</div>
+        <div v-if="topPick" style="font-size:0.8rem;color:rgba(255,255,255,0.5);">{{ topPick.artist }} · {{ topPick.reasons[0]?.icon }} {{ topPick.reasons[0]?.text }}</div>
+      </div>
+      <div style="flex-shrink:0;display:flex;align-items:center;gap:0.5rem;">
+        <div style="font-size:1.5rem;">{{ weather?.icon || '🌡️' }}</div>
+        <div>
+          <div style="font-size:0.8rem;font-weight:600;">{{ weather?.label }}</div>
+          <div style="font-size:0.7rem;color:rgba(255,255,255,0.4);">Rotterdam{{ weather ? ' · ' + weather.temp + '°C' : '' }}</div>
+        </div>
+      </div>
+      <div style="font-size:0.8rem;color:rgba(255,255,255,0.3);">→</div>
+    </div>
+  `
+})
+</script>

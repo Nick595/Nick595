@@ -1,0 +1,67 @@
+<template>
+  <div class="card fade-in">
+    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1.25rem;">
+      <div>
+        <div class="stat-label">Portfolio Value</div>
+        <div style="font-size:2rem; font-weight:800; line-height:1;"><span class="gradient-text">€{{ formatNum(currentTotal) }}</span></div>
+        <div class="stat-delta positive" style="margin-top:0.3rem;">▲ €{{ formatNum(totalGain) }} ({{ gainPct }}%) all-time</div>
+      </div>
+      <div style="display:flex; gap:0.5rem;">
+        <button v-for="p in periods" :key="p.key" class="btn-secondary" :style="activePeriod === p.key ? 'background:rgba(124,58,237,0.25); border-color:rgba(124,58,237,0.5); color:white;' : ''" @click="activePeriod = p.key">{{ p.label }}</button>
+      </div>
+    </div>
+    <div style="position:relative; height:220px;"><canvas ref="chartCanvas"></canvas></div>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:0.75rem; margin-top:1.25rem;">
+      <div class="card-sm" style="text-align:center;"><div class="stat-label">Cost Basis</div><div style="font-weight:700; font-size:1.1rem;">€{{ formatNum(store.totalCost) }}</div></div>
+      <div class="card-sm" style="text-align:center;"><div class="stat-label">Unrealised Gain</div><div style="font-weight:700; font-size:1.1rem;" :class="store.totalProfit >= 0 ? 'positive' : 'negative'">€{{ formatNum(store.totalProfit) }}</div></div>
+      <div class="card-sm" style="text-align:center;"><div class="stat-label">ROI</div><div style="font-weight:700; font-size:1.1rem;" class="positive">+{{ store.profitPercent }}%</div></div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, onMounted, watch, computed } from 'vue'
+import { Chart, registerables } from 'chart.js'
+import { useCollectionStore } from '../stores/collection.js'
+
+Chart.register(...registerables)
+const store = useCollectionStore()
+const chartCanvas = ref(null)
+let chartInstance = null
+const activePeriod = ref('12m')
+const periods = [{ key: '3m', label: '3M', months: 3 }, { key: '6m', label: '6M', months: 6 }, { key: '12m', label: '1Y', months: 12 }]
+const MONTH_LABELS = ['Jun','Jul','Aug','Sep','Oct','Nov','Dec','Jan','Feb','Mar','Apr','May']
+const currentTotal = computed(() => store.totalValue)
+const totalGain = computed(() => store.totalProfit)
+const gainPct = computed(() => store.profitPercent)
+function formatNum(n) { return Math.round(n).toLocaleString('nl-NL') }
+function getSlicedData() {
+  const p = periods.find(p => p.key === activePeriod.value)
+  const months = p?.months || 12
+  const history = store.collectionValueHistory
+  return { sliced: history.slice(history.length - months), labels: MONTH_LABELS.slice(MONTH_LABELS.length - months) }
+}
+function buildChart() {
+  if (!chartCanvas.value) return
+  const ctx = chartCanvas.value.getContext('2d')
+  const { sliced, labels } = getSlicedData()
+  const gradient = ctx.createLinearGradient(0, 0, 0, 220)
+  gradient.addColorStop(0, 'rgba(124,58,237,0.35)')
+  gradient.addColorStop(1, 'rgba(124,58,237,0)')
+  if (chartInstance) chartInstance.destroy()
+  chartInstance = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets: [{ label: 'Collection Value (€)', data: sliced, borderColor: '#a78bfa', backgroundColor: gradient, borderWidth: 2.5, fill: true, tension: 0.45, pointRadius: 3, pointBackgroundColor: '#a78bfa', pointBorderColor: '#0a0a0f', pointBorderWidth: 2, pointHoverRadius: 6 }] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(15,15,20,0.95)', borderColor: 'rgba(124,58,237,0.4)', borderWidth: 1, titleColor: '#a78bfa', bodyColor: 'white', padding: 10, callbacks: { label: ctx => ` €${Math.round(ctx.raw).toLocaleString('nl-NL')}` } } },
+      scales: {
+        x: { grid: { color: 'rgba(255,255,255,0.04)', drawBorder: false }, ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 11 } } },
+        y: { grid: { color: 'rgba(255,255,255,0.04)', drawBorder: false }, ticks: { color: 'rgba(255,255,255,0.4)', font: { size: 11 }, callback: v => `€${Math.round(v / 100) * 100}` } }
+      }
+    }
+  })
+}
+onMounted(buildChart)
+watch(activePeriod, buildChart)
+</script>
